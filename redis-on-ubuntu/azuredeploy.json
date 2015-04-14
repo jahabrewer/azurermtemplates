@@ -21,13 +21,6 @@
                 "Description": "Unique namespace for the Storage Account where the Virtual Machine's disks will be placed"
             }
         },
-        "numberOfInstances": {
-            "type": "int",
-            "defaultValue": 2,
-            "metadata": {
-                "Description": "The number of Redis nodes (2 is the recommended minimum)"
-            }
-        },
         "region": {
             "type": "string",
             "defaultValue": "West US",
@@ -40,20 +33,6 @@
             "defaultValue": "myVNET",
             "metadata": {
                 "Description": "The arbitrary name of the virtual network provisioned for the cluster"
-            }
-        },
-        "vmSize": {
-            "type": "string",
-            "defaultValue": "Standard_A0",
-            "allowedValues": [
-                "Standard_A0",
-                "Standard_A1",
-                "Standard_A2",
-                "Standard_A3",
-                "Standard_A4"
-            ],
-            "metadata": {
-                "Description": "The virtual machine size of the Redis nodes"
             }
         },
         "dataDiskSize": {
@@ -114,6 +93,18 @@
             "metadata": {
                 "Description": "The flag allowing to enable or disable provisioning of the jumpbox VM that can be used to access the Redis nodes"
             }
+        },
+        "tshirtSize": {
+            "type": "string",
+            "defaultValue": "S",
+            "allowedValues": [
+                "S",
+                "M",
+                "L"
+            ],
+            "metadata": {
+                "Description": "T-shirt size of the Redis cluster"
+            }
         }
     },
     "variables": {
@@ -124,9 +115,27 @@
         "sourceImageName": "[concat('/',subscription().subscriptionId,'/services/images/',variables('vmSourceImageName'))]",
         "computerNamePrefix": "redisnode_",
         "scriptUrl": "https://raw.githubusercontent.com/azurermtemplates/azurermtemplates/master/redis-on-ubuntu/",
-        "templateUrl": "https://raw.githubusercontent.com/azurermtemplates/azurermtemplates/master/redis-on-ubuntu/",
+        "templateUrl": "[variables('scriptUrl')]",
         "sharedTemplateName": "shared-resources",
-        "jumpboxTemplateName": "jumpbox-resources-"
+        "jumpboxTemplateName": "jumpbox-resources-",
+        "tshirtSizeS": {
+            "numberOfInstances": 3,
+			"numberOfSlaves" : 0,
+            "vmSize": "Standard_A1"
+        },
+        "tshirtSizeM": {
+            "numberOfInstances": 6,
+			"numberOfSlaves" : 1,
+            "vmSize": "Standard_A2"
+        },
+        "tshirtSizeL": {
+            "numberOfInstances": 9,
+			"numberOfSlaves" : 2,
+            "vmSize": "Standard_A3"
+        },
+        "numberOfInstances": "[variables(concat('tshirtSize', parameters('tshirtSize'))).numberOfInstances]",
+		"numberOfSlaves": "[variables(concat('tshirtSize', parameters('tshirtSize'))).numberOfSlaves]",
+        "vmSize": "[variables(concat('tshirtSize', parameters('tshirtSize'))).vmSize]"
     },
     "resources": [
         {
@@ -206,7 +215,7 @@
             "location": "[parameters('region')]",
             "copy": {
                 "name": "nicLoop",
-                "count": "[parameters('numberOfInstances')]"
+                "count": "[variables('numberOfInstances')]"
             },
             "dependsOn": [
                 "[concat('Microsoft.Resources/deployments/', 'shared-resources')]"
@@ -233,7 +242,7 @@
             "location": "[parameters('region')]",
             "copy": {
                 "name": "virtualMachineLoop",
-                "count": "[parameters('numberOfInstances')]"
+                "count": "[variables('numberOfInstances')]"
             },
             "dependsOn": [
                 "[concat('Microsoft.Resources/deployments/', 'shared-resources')]",
@@ -244,7 +253,7 @@
                     "id": "[resourceId('Microsoft.Compute/availabilitySets', 'redisCluserAS')]"
                 },
                 "hardwareProfile": {
-                    "vmSize": "[parameters('vmSize')]",
+                    "vmSize": "[variables('vmSize')]",
                     "platformGuestAgent": "true"
                 },
                 "osProfile": {
@@ -288,7 +297,7 @@
             "location": "[parameters('region')]",
             "copy": {
                 "name": "virtualMachineExtensionsLoop",
-                "count": "[parameters('numberOfInstances')]"
+                "count": "[variables('numberOfInstances')]"
             },
             "dependsOn": [
                 "[concat('Microsoft.Compute/virtualMachines/', 'myvm', copyindex())]",
@@ -302,7 +311,27 @@
                     "fileUris": [
                         "[concat(variables('scriptUrl'), 'redis-cluster-install.sh')]"
                     ],
-                    "commandToExecute": "[concat('bash redis-cluster-install.sh -n ', parameters('redisClusterName'), ' -v ', parameters('redisVersion'), ' -c ', parameters('numberOfInstances'), ' -p ', parameters('redisNodeIPAddressPrefix'))]"
+                    "commandToExecute": "[concat('bash redis-cluster-install.sh -n ', parameters('redisClusterName'), ' -v ', parameters('redisVersion'))]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "name": "[concat('myvm0', '/setupcluster')]",
+            "apiVersion": "2014-12-01-preview",
+            "location": "[parameters('region')]",
+            "dependsOn": [
+                "virtualMachineExtensionsLoop"
+            ],
+            "properties": {
+                "publisher": "Microsoft.OSTCExtensions",
+                "type": "CustomScriptForLinux",
+                "typeHandlerVersion": "1.2",
+                "settings": {
+                    "fileUris": [
+                        "[concat(variables('scriptUrl'), 'redis-cluster-setup.sh')]"
+                    ],
+                    "commandToExecute": "[concat('bash redis-cluster-setup.sh -c ', variables('numberOfInstances'), ' -s ', variables('numberOfSlaves'), ' -p ', parameters('redisNodeIPAddressPrefix'))]"
                 }
             }
         }
