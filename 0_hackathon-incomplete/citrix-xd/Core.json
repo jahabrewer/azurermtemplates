@@ -31,7 +31,8 @@
       "type": "securestring"
     },
     "virtualNetworkName": {
-      "type": "string"
+      "type": "string",
+      "defaultValue": "vnet1"
     },
     "addressPrefix": {
       "type": "string",
@@ -46,7 +47,8 @@
       "defaultValue": "10.0.0.0/24"
     },
     "nicNamePrefix": {
-      "type": "string"
+      "type": "string",
+      "defaultValue": "nic"
     },
     "publicIPAddressType": {
       "type": "string",
@@ -68,7 +70,8 @@
       ]
     },
     "dcVmName": {
-      "type": "string"
+      "type": "string",
+      "defaultValue": "dc"
     },
     "dcVmSourceImageName": {
       "type": "string",
@@ -92,7 +95,8 @@
       ]
     },
     "sqlVmName": {
-      "type": "string"
+      "type": "string",
+      "defaultValue": "sql"
     },
     "sqlVmSourceImageName": {
       "type": "string",
@@ -119,7 +123,8 @@
       ]
     },
     "ddcVmName": {
-      "type": "string"
+      "type": "string",
+      "defaultValue": "ddc"
     },
     "ddcVmSourceImageName": {
       "type": "string",
