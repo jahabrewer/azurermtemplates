@@ -14,9 +14,6 @@
     "virtualNetworkName": {
       "value": ""
     },
-    "subscriptionId": {
-      "value": ""
-    },
     "nicNamePrefix": {
       "value": ""
     },
@@ -27,9 +24,6 @@
       "value": ""
     },
     "ddcVmName": {
-      "value": ""
-    },
-    "dcDnsName": {
       "value": ""
     },
     "sqlDnsName": {
@@ -54,6 +48,9 @@
       "value": ""
     },
     "xdDscConfigurationFunction": {
+      "value": ""
+    },
+    "addnsName":{
       "value": ""
     }
   }

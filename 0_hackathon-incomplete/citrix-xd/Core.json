@@ -45,9 +45,6 @@
       "type": "string",
       "defaultValue": "10.0.0.0/24"
     },
-    "subscriptionId": {
-      "type": "string"
-    },
     "nicNamePrefix": {
       "type": "string"
     },
@@ -67,9 +64,7 @@
         "Standard_A1",
         "Standard_A2",
         "Standard_A3",
-        "Standard_A4",
-        "Standard_A5",
-        "Standard_A6"
+        "Standard_A4"
       ]
     },
     "dcVmName": {
@@ -82,9 +77,6 @@
     "dcPublicIPAddressName": {
       "type": "string",
       "defaultValue": "publicIP-dc"
-    },
-    "dcDnsName": {
-      "type": "string"
     },
     "sqlVmSize": {
       "type": "string",
@@ -131,7 +123,7 @@
     },
     "ddcVmSourceImageName": {
       "type": "string",
-      "defaultValue": "a699494373c04fc0bc8f2bb1389d6106__Windows-Server-2012-R2-201503.01-en.us-127GB.vhd"
+      "defaultValue": "a699494373c04fc0bc8f2bb1389d6106__Windows-Server-2012-R2-201502.01-en.us-127GB.vhd"
     },
     "ddcPublicIPAddressName": {
       "type": "string",
@@ -157,37 +149,94 @@
     },
     "xdDscConfigurationFunction": {
       "type": "string"
+    },
+    "adAssetLocation": {
+      "type": "string",
+      "metadata": {
+        "Description": "The location of resources such as templates and DSC modules upon which the script is dependent"
+      },
+      "defaultValue": "https://raw.githubusercontent.com/azurermtemplates/azurermtemplates/master/activedirectorynewdomain"
+    },
+    "addnsName": {
+      "type": "string"
     }
   },
   "variables": {
-    "dcSourceImageName": "[concat('/',parameters('subscriptionId'),'/services/images/',parameters('dcVmSourceImageName'))]",
-    "sqlSourceImageName": "[concat('/',parameters('subscriptionId'),'/services/images/',parameters('sqlVmSourceImageName'))]",
-    "ddcSourceImageName": "[concat('/',parameters('subscriptionId'),'/services/images/',parameters('ddcVmSourceImageName'))]",
+    "sqlSourceImageName": "[concat('/',subscription().subscriptionId,'/services/images/',parameters('sqlVmSourceImageName'))]",
+    "ddcSourceImageName": "[concat('/',subscription().subscriptionId,'/services/images/',parameters('ddcVmSourceImageName'))]",
     "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',parameters('virtualNetworkName'))]",
     "subnet1Ref": "[concat(variables('vnetID'),'/subnets/',parameters('subnet1Name'))]",
     "dcNicName": "[concat(parameters('nicNamePrefix'),'-dc')]",
     "sqlNicName": "[concat(parameters('nicNamePrefix'),'-sql')]",
-    "ddcNicName": "[concat(parameters('nicNamePrefix'),'-ddc')]"
+    "ddcNicName": "[concat(parameters('nicNamePrefix'),'-ddc')]",
+    "dcTemplateUri": "[concat(parameters('adAssetLocation'),'/azuredeploy.json')]"
   },
   "resources": [
     {
-      "type": "Microsoft.Storage/storageAccounts",
-      "name": "[parameters('newStorageAccountName')]",
-      "apiVersion": "2014-12-01-preview",
-      "location": "[parameters('location')]",
+      "name": "dc",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
       "properties": {
-        "accountType": "[parameters('storageAccountType')]"
-      }
-    },
-    {
-      "apiVersion": "2014-12-01-preview",
-      "type": "Microsoft.Network/publicIPAddresses",
-      "name": "[parameters('dcPublicIPAddressName')]",
-      "location": "[parameters('location')]",
-      "properties": {
-        "publicIPAllocationMethod": "[parameters('publicIPAddressType')]",
-        "dnsSettings": {
-          "domainNameLabel": "[parameters('dcDnsName')]"
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('dcTemplateUri')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "newStorageAccountName": {
+            "value": "[parameters('newStorageAccountName')]"
+          },
+          "storageAccountType": {
+            "value": "[parameters('storageAccountType')]"
+          },
+          "deploymentLocation": {
+            "value": "[parameters('location')]"
+          },
+          "virtualNetworkName": {
+            "value": "[parameters('virtualNetworkName')]"
+          },
+          "virtualNetworkAddressRange": {
+            "value": "[parameters('addressPrefix')]"
+          },
+          "adSubnetName": {
+            "value": "[parameters('subnet1Name')]"
+          },
+          "adSubnet": {
+            "value": "[parameters('subnet1Prefix')]"
+          },
+          "adNicName": {
+            "value": "[variables('dcNicName')]"
+          },
+          "addnsName": {
+            "value": "[parameters('addnsName')]"
+          },
+          "publicIPAddressName": {
+            "value": "[parameters('dcPublicIPAddressName')]"
+          },
+          "publicIPAddressType": {
+            "value": "[parameters('publicIPAddressType')]"
+          },
+          "adminUsername": {
+            "value": "[parameters('adminUsername')]"
+          },
+          "adminPassword": {
+            "value": "[parameters('adminPassword')]"
+          },
+          "adVMName": {
+            "value": "[parameters('dcVmName')]"
+          },
+          "adVMSize": {
+            "value": "[parameters('dcVmSize')]"
+          },
+          "adImageName": {
+            "value": "[parameters('dcVmSourceImageName')]"
+          },
+          "vmContainerName": {
+            "value": "[parameters('vmStorageAccountContainerName')]"
+          },
+          "AssetLocation": {
+            "value": "https://raw.githubusercontent.com/azurermtemplates/azurermtemplates/master/activedirectorynewdomain-ha-2-dc"
+          }
         }
       }
     },
@@ -217,59 +266,12 @@
     },
     {
       "apiVersion": "2014-12-01-preview",
-      "type": "Microsoft.Network/virtualNetworks",
-      "name": "[parameters('virtualNetworkName')]",
-      "location": "[parameters('location')]",
-      "properties": {
-        "addressSpace": {
-          "addressPrefixes": [
-            "[parameters('addressPrefix')]"
-          ]
-        },
-        "subnets": [
-          {
-            "name": "[parameters('subnet1Name')]",
-            "properties": {
-              "addressPrefix": "[parameters('subnet1Prefix')]"
-            }
-          }
-        ]
-      }
-    },
-    {
-      "apiVersion": "2014-12-01-preview",
-      "type": "Microsoft.Network/networkInterfaces",
-      "name": "[variables('dcNicName')]",
-      "location": "[parameters('location')]",
-      "dependsOn": [
-        "[concat('Microsoft.Network/publicIPAddresses/', parameters('dcPublicIPAddressName'))]",
-        "[concat('Microsoft.Network/virtualNetworks/', parameters('virtualNetworkName'))]"
-      ],
-      "properties": {
-        "ipConfigurations": [
-          {
-            "name": "ipconfig1",
-            "properties": {
-              "privateIPAllocationMethod": "Dynamic",
-              "subnet": {
-                "id": "[variables('subnet1Ref')]"
-              },
-              "publicIPAddress": {
-                "id": "[resourceId('Microsoft.Network/publicIPAddresses',parameters('dcPublicIPAddressName'))]"
-              }
-            }
-          }
-        ]
-      }
-    },
-    {
-      "apiVersion": "2014-12-01-preview",
       "type": "Microsoft.Network/networkInterfaces",
       "name": "[variables('sqlNicName')]",
       "location": "[parameters('location')]",
       "dependsOn": [
         "[concat('Microsoft.Network/publicIPAddresses/', parameters('sqlPublicIPAddressName'))]",
-        "[concat('Microsoft.Network/virtualNetworks/', parameters('virtualNetworkName'))]"
+        "Microsoft.Resources/deployments/dc"
       ],
       "properties": {
         "ipConfigurations": [
@@ -295,7 +297,7 @@
       "location": "[parameters('location')]",
       "dependsOn": [
         "[concat('Microsoft.Network/publicIPAddresses/', parameters('ddcPublicIPAddressName'))]",
-        "[concat('Microsoft.Network/virtualNetworks/', parameters('virtualNetworkName'))]"
+        "Microsoft.Resources/deployments/dc"
       ],
       "properties": {
         "ipConfigurations": [
@@ -317,43 +319,10 @@
     {
       "apiVersion": "2014-12-01-preview",
       "type": "Microsoft.Compute/virtualMachines",
-      "name": "[parameters('dcVmName')]",
-      "location": "[parameters('location')]",
-      "dependsOn": [
-        "[concat('Microsoft.Storage/storageAccounts/', parameters('newStorageAccountName'))]",
-        "[concat('Microsoft.Network/networkInterfaces/', variables('dcNicName'))]"
-      ],
-      "properties": {
-        "hardwareProfile": {
-          "vmSize": "[parameters('dcVmSize')]"
-        },
-        "osProfile": {
-          "computername": "[parameters('dcVmName')]",
-          "adminUsername": "[parameters('adminUsername')]",
-          "adminPassword": "[parameters('adminPassword')]"
-        },
-        "storageProfile": {
-          "sourceImage": {
-            "id": "[variables('dcSourceImageName')]"
-          },
-          "destinationVhdsContainer": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/',parameters('vmStorageAccountContainerName'),'/')]"
-        },
-        "networkProfile": {
-          "networkInterfaces": [
-            {
-              "id": "[resourceId('Microsoft.Network/networkInterfaces',variables('dcNicName'))]"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "apiVersion": "2014-12-01-preview",
-      "type": "Microsoft.Compute/virtualMachines",
       "name": "[parameters('sqlVmName')]",
       "location": "[parameters('location')]",
       "dependsOn": [
-        "[concat('Microsoft.Storage/storageAccounts/', parameters('newStorageAccountName'))]",
+        "Microsoft.Resources/deployments/dc",
         "[concat('Microsoft.Network/networkInterfaces/', variables('sqlNicName'))]"
       ],
       "properties": {
@@ -386,7 +355,7 @@
       "name": "[parameters('ddcVmName')]",
       "location": "[parameters('location')]",
       "dependsOn": [
-        "[concat('Microsoft.Storage/storageAccounts/', parameters('newStorageAccountName'))]",
+        "Microsoft.Resources/deployments/dc",
         "[concat('Microsoft.Network/networkInterfaces/', variables('ddcNicName'))]"
       ],
       "properties": {
@@ -410,60 +379,6 @@
               "id": "[resourceId('Microsoft.Network/networkInterfaces',variables('ddcNicName'))]"
             }
           ]
-        }
-      }
-    },
-    {
-      "type": "Microsoft.Compute/virtualMachines/extensions",
-      "name": "[concat(parameters('ddcVmName'),'/','dscExtension')]",
-      "apiVersion": "2014-12-01-preview",
-      "location": "[parameters('location')]",
-      "dependsOn": [
-        "[concat('Microsoft.Compute/virtualMachines/', parameters('ddcVmName'))]"
-      ],
-      "properties": {
-        "publisher": "Microsoft.Powershell",
-        "type": "DSC",
-        "typeHandlerVersion": "1.7",
-        "settings": {
-          "ModulesUrl": "[parameters('xdDscModulesUrl')]",
-          "SasToken": "",
-          "ConfigurationFunction": "[parameters('xdDscConfigurationFunction')]",
-          "Properties": [
-            {
-              "Name": "SourcePath",
-              "Value": "[parameters('xdIsoSourcePath')]",
-              "TypeName": "System.String"
-            },
-            {
-              "Name": "ImagePath",
-              "Value": "[parameters('xdImagePath')]",
-              "TypeName": "System.String"
-            },
-            {
-              "Name": "Credential",
-              "TypeName": "System.Management.Automation.PSCredential",
-              "Value": {
-                "Username": "[parameters('sourcePathCredUsername')]",
-                "Password": "[concat('PrivateSettingsRef:','f4ec0b04-714c-44ac-b6c8-fd1aa99c5497')]"
-              }
-            },
-            {
-              "Name": "ModulePath",
-              "Value": "C:\\Image",
-              "TypeName": "System.String"
-            },
-            {
-              "Name": "xdRoleType",
-              "Value": "Controller",
-              "TypeName": "System.String"
-            }
-          ]
-        },
-        "protectedSettings": {
-          "Items": {
-            "f4ec0b04-714c-44ac-b6c8-fd1aa99c5497": "[parameters('sourcePathCredKey')]"
-          }
         }
       }
     }
