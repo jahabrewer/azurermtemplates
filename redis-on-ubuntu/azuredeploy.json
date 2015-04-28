@@ -16,23 +16,22 @@
         },
         "storageAccountName": {
             "type": "string",
-            "defaultValue": "uniqueStorageAccountName",
+            "defaultValue": "",
             "metadata": {
                 "Description": "Unique namespace for the Storage Account where the Virtual Machine's disks will be placed"
             }
         },
         "region": {
             "type": "string",
-            "defaultValue": "West US",
             "metadata": {
                 "Description": "Location where resources will be provisioned"
             }
         },
         "virtualNetworkName": {
             "type": "string",
-            "defaultValue": "myVNET",
+            "defaultValue": "redisVirtNet",
             "metadata": {
-                "Description": "The arbitrary name of the virtual network provisioned for the cluster"
+                "Description": "The arbitrary name of the virtual network provisioned for the Redis cluster"
             }
         },
         "addressPrefix": {
@@ -44,7 +43,7 @@
         },
         "subnetName": {
             "type": "string",
-            "defaultValue": "Subnet-1",
+            "defaultValue": "redisSubnet1",
             "metadata": {
                 "Description": "Subnet name for the virtual network that resources will be provisioned in to"
             }
@@ -56,6 +55,13 @@
                 "Description": "Address space for the virtual network subnet"
             }
         },
+        "nodeAddressPrefix": {
+            "type": "string",
+            "defaultValue": "10.0.0.1",
+            "metadata": {
+                "Description": "The IP address prefix that will be used for constructing a static private IP address for each node in the cluster"
+            }
+        },
         "jumpbox": {
             "type": "string",
             "defaultValue": "Disabled",
@@ -64,7 +70,7 @@
                 "Disabled"
             ],
             "metadata": {
-                "Description": "The flag allowing to enable or disable provisioning of the jumpbox VM that can be used to access the Redis deployment"
+                "Description": "The flag allowing to enable or disable provisioning of the jumpbox VM that can be used to access the Redis nodes"
             }
         },
         "tshirtSize": {
@@ -79,17 +85,6 @@
                 "Description": "T-shirt size of the Redis deployment"
             }
         },
-        "osFamily": {
-            "type": "string",
-            "defaultValue": "Ubuntu",
-            "allowedValues": [
-                "Ubuntu",
-                "CentOS"
-            ],
-            "metadata": {
-                "Description": "The target OS for the virtual machines running Redis"
-            }
-        },
         "redisVersion": {
             "type": "string",
             "defaultValue": "stable",
@@ -99,6 +94,7 @@
         },
         "redisClusterName": {
             "type": "string",
+            "defaultValue": "redis-cluster",
             "metadata": {
                 "Description": "The arbitrary name of the Redis cluster"
             }
@@ -108,31 +104,28 @@
         "_comment0": "/* T-shirt sizes may vary for different reasons, and some customers may want to modify these - so feel free to go ahead and define your favorite t-shirts */",
         "tshirtSizeSmall": {
             "vmSizeMember": "Standard_A1",
-            "numberOfMembers": 2,
-            "totalMemberCount": 3,
+            "numberOfMasters": 3,
             "numberOfSlaves": 0,
+            "totalMemberCount": 3,
+            "totalMemberCountExcludingLast": 2,
             "vmTemplate": "[concat(variables('templateBaseUrl'), 'node-resources.json')]"
         },
         "tshirtSizeMedium": {
             "vmSizeMember": "Standard_A2",
-            "numberOfMembers": 5,
+            "numberOfMasters": 3,
+            "numberOfSlaves": 3,
             "totalMemberCount": 6,
-            "numberOfSlaves": 1,
+            "totalMemberCountExcludingLast": 5,
             "vmTemplate": "[concat(variables('templateBaseUrl'), 'node-resources.json')]"
         },
         "tshirtSizeLarge": {
             "vmSizeMember": "Standard_A5",
-            "numberOfMembers": 8,
+            "numberOfMasters": 3,
+            "numberOfSlaves": 6,
             "totalMemberCount": 9,
-            "numberOfSlaves": 2,
+            "totalMemberCountExcludingLast": 8,
             "arbiter": "Enabled",
             "vmTemplate": "[concat(variables('templateBaseUrl'), 'node-resources.json')]"
-        },
-        "osFamilyUbuntu": {
-            "osName": "ubuntu"
-        },
-        "osFamilyCentOS": {
-            "osName": "centos"
         },
         "vmStorageAccountContainerName": "vhd-redis",
         "vmStorageAccountDomain": ".blob.core.windows.net",
@@ -160,7 +153,7 @@
             "subnetName": "[parameters('subnetName')]",
             "subnetPrefix": "[parameters('subnetPrefix')]",
             "subnetRef": "[concat(variables('vnetID'), '/subnets/', parameters('subnetName'))]",
-            "machineIpPrefix": "10.0.0.1"
+            "machineIpPrefix": "[parameters('nodeAddressPrefix')]"
         },
         "machineSettings": {
             "adminUsername": "[parameters('adminUsername')]",
@@ -168,12 +161,12 @@
             "osImageName": "[variables('sourceImageName')]"
         },
         "clusterSpec": "[variables(concat('tshirtSize', parameters('tshirtSize')))]",
-        "osFamilySpec": "[variables(concat('osFamily', parameters('osFamily')))]",
-        "installCommand": "[concat('redis-cluster-install.sh -n ', parameters('redisClusterName'), ' -v ', parameters('redisVersion'), ' -c ', variables('clusterSpec').totalMemberCount, ' -s ', variables('clusterSpec').numberOfSlaves, ' -p ', variables('networkSettings').machineIpPrefix)]",
+        "installCommand": "[concat('redis-cluster-install.sh -n ', parameters('redisClusterName'), ' -v ', parameters('redisVersion'), ' -c ', variables('clusterSpec').totalMemberCount, ' -m ', variables('clusterSpec').numberOfMasters, ' -s ', variables('clusterSpec').numberOfSlaves, ' -p ', variables('networkSettings').machineIpPrefix)]",
         "vmScripts": {
             "scriptsToDownload": [
                 "[concat(variables('scriptUrl'), 'redis-cluster-install.sh')]",
-                "[concat(variables('scriptUrl'), 'redis-cluster-setup.sh')]"
+                "[concat(variables('scriptUrl'), 'redis-cluster-setup.sh')]",
+                "[concat(variables('scriptUrl'), 'redis-sentinel-startup.sh')]"
             ],
             "installCommand": "[concat('bash ', variables('installCommand'))]",
             "setupCommand": "[concat('bash ', variables('installCommand'), ' -l')]"
@@ -244,7 +237,7 @@
             ],
             "copy": {
                 "name": "memberNodesLoop",
-                "count": "[variables('clusterSpec').numberOfMembers]"
+                "count": "[variables('clusterSpec').totalMemberCountExcludingLast]"
             },
             "properties": {
                 "mode": "Incremental",
@@ -270,7 +263,7 @@
                             "vmSize": "[variables('clusterSpec').vmSizeMember]",
                             "machineIndex": "[copyindex()]",
                             "vmScripts": "[variables('vmScripts').scriptsToDownload]",
-                            "commandToExecute": "[variables('vmScripts').installCommand]"
+                            "commandToExecute": "[concat(variables('vmScripts').installCommand, ' -i ', copyindex())]"
                         }
                     },
                     "adminPassword": {
@@ -308,9 +301,9 @@
                             "machineNamePrefix": "[variables('machineSettings').machineNamePrefix]",
                             "osImageName": "[variables('machineSettings').osImageName]",
                             "vmSize": "[variables('clusterSpec').vmSizeMember]",
-                            "machineIndex": "[variables('clusterSpec').numberOfMembers]",
+                            "machineIndex": "[variables('clusterSpec').totalMemberCountExcludingLast]",
                             "vmScripts": "[variables('vmScripts').scriptsToDownload]",
-                            "commandToExecute": "[variables('vmScripts').setupCommand]"
+                            "commandToExecute": "[concat(variables('vmScripts').setupCommand, ' -i ', variables('clusterSpec').totalMemberCountExcludingLast)]"
                         }
                     },
                     "adminPassword": {

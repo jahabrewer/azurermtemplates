@@ -1,13 +1,12 @@
 {
-    "$schema": "http://schema.management.azure.com/schemas/2014-04-01-preview/deploymentTemplate.json",
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01-preview/deploymentTemplate.json",
     "contentVersion": "1.0.0.0",
     "parameters": {
         "region": {
             "type": "string"
         },
         "storageAccountName": {
-            "type": "string",
-            "defaultValue" : "uniqueStorageAccountName"
+            "type": "string"
         },
         "adminUsername": {
             "type": "string"
@@ -16,8 +15,7 @@
             "type": "securestring"
         },
         "dnsNameforLBIP": {
-            "type": "string",
-            "defaultValue" : "uniqueDnsNameforLBIP"
+            "type": "string"
         },
         "backendPort": {
             "type": "int",
@@ -25,27 +23,43 @@
         },
         "vmNamePrefix": {
             "type": "string",
-            "defaultValue" : "myVM"
+            "defaultValue": "myVM"
         },
-        "vmSourceImageName": {
+        "imagePublisher": {
             "type": "string",
-            "defaultValue" : "a699494373c04fc0bc8f2bb1389d6106__Windows-Server-2012-R2-201412.01-en.us-127GB.vhd"
+            "defaultValue": "MicrosoftWindowsServer",
+            "metadata": {
+                 "Description": "Image Publisher"
+            }
+        },
+        "imageOffer": {
+            "type": "string",
+            "defaultValue": "WindowsServer",
+            "metadata": {
+                "Description": "Image Offer"
+            }
+        },
+        "imageSKU": {
+            "type": "string",
+            "defaultValue": "2012-R2-Datacenter",
+            "metadata": {
+                "Description": "Image SKU"
+            }
         },
         "lbName": {
             "type": "string",
-            "defaultValue" : "myLB"
+            "defaultValue": "myLB"
         },
         "nicNamePrefix": {
             "type": "string",
-            "defaultValue" : "nic"
+            "defaultValue": "nic"
         },
         "publicIPAddressName": {
-            "type": "string",
-            "defaultValue" : "myPublicIP"
+            "type": "string"
         },
         "vnetName": {
             "type": "string",
-            "defaultValue" : "myVNET"
+            "defaultValue": "myVNET"
         },
         "vmSize": {
             "type": "string",
@@ -60,13 +74,12 @@
         }
     },
     "variables": {
-        "storageAccountType" : "Standard_LRS",
-        "vmStorageAccountContainerName" : "vhds",
+        "storageAccountType": "Standard_LRS",
         "availabilitySetName": "myAvSet",
         "addressPrefix": "10.0.0.0/16",
         "subnetName": "Subnet-1",
         "subnetPrefix": "10.0.0.0/24",
-        "publicIPAddressType" : "Dynamic",
+        "publicIPAddressType": "Dynamic",
 
 
 
@@ -79,14 +92,13 @@
         "nicId2": "[resourceId('Microsoft.Network/networkInterfaces',concat(parameters('nicNamePrefix'), 1))]",
         "frontEndIPConfigID": "[concat(variables('lbID'),'/frontendIPConfigurations/LBFE')]",
         "backEndIPConfigID1": "[concat(variables('nicId1'),'/ipConfigurations/ipconfig1')]",
-        "backEndIPConfigID2": "[concat(variables('nicId2'),'/ipConfigurations/ipconfig1')]",
-        "sourceImageName": "[concat('/', subscription().subscriptionId,'/services/images/',parameters('vmSourceImageName'))]"
+        "backEndIPConfigID2": "[concat(variables('nicId2'),'/ipConfigurations/ipconfig1')]"
     },
     "resources": [
         {
             "type": "Microsoft.Storage/storageAccounts",
             "name": "[parameters('storageAccountName')]",
-            "apiVersion": "2014-12-01-preview",
+            "apiVersion": "2015-05-01-preview",
             "location": "[parameters('region')]",
             "properties": {
                 "accountType": "[variables('storageAccountType')]"
@@ -95,12 +107,12 @@
         {
             "type": "Microsoft.Compute/availabilitySets",
             "name": "[variables('availabilitySetName')]",
-            "apiVersion": "2014-12-01-preview",
+            "apiVersion": "2015-05-01-preview",
             "location": "[parameters('region')]",
-            "properties": {}
+            "properties": { }
         },
         {
-            "apiVersion": "2014-12-01-preview",
+            "apiVersion": "2015-05-01-preview",
             "type": "Microsoft.Network/publicIPAddresses",
             "name": "[parameters('publicIPAddressName')]",
             "location": "[parameters('region')]",
@@ -112,7 +124,7 @@
             }
         },
         {
-            "apiVersion": "2014-12-01-preview",
+            "apiVersion": "2015-05-01-preview",
             "type": "Microsoft.Network/virtualNetworks",
             "name": "[parameters('vnetName')]",
             "location": "[parameters('region')]",
@@ -133,7 +145,7 @@
             }
         },
         {
-            "apiVersion": "2014-12-01-preview",
+            "apiVersion": "2015-05-01-preview",
             "type": "Microsoft.Network/networkInterfaces",
             "name": "[concat(parameters('nicNamePrefix'), copyindex())]",
             "location": "[parameters('region')]",
@@ -153,13 +165,23 @@
                             "subnet": {
                                 "id": "[variables('subnetRef')]"
                             }
-                        }
+                        },
+                        "loadBalancerBackendAddressPools": [
+                            {
+                                "id": "[concat('Microsoft.Network/loadBalancers/',parameters('lbName'),'/backendAddressPools/LBBE')]"
+                            }
+                        ],
+                        "loadBalancerInboundNatRules": [
+                            {
+                                "id": "[concat('Microsoft.Network/loadBalancers/',parameters('lbName'),'/inboundNatRule/RDP-VM', copyindex())]"
+                            }
+                        ]
                     }
                 ]
             }
         },
         {
-            "apiVersion": "2014-12-01-preview",
+            "apiVersion": "2015-05-01-preview",
             "name": "[parameters('lbName')]",
             "type": "Microsoft.Network/loadBalancers",
             "location": "[parameters('region')]",
@@ -180,31 +202,18 @@
                 ],
                 "backendAddressPools": [
                     {
-                        "name": "LBBE",
-                        "properties": {
-                            "backendIPConfigurations": [
-                                {
-                                    "id": "[variables('backEndIPConfigID1')]"
-                                },
-                                {
-                                    "id": "[variables('backEndIPConfigID2')]"
-                                }
-                            ]
-                        }
+                        "name": "LBBE"
+
                     }
                 ],
                 "inboundNatRules": [
                     {
                         "name": "RDP-VM1",
                         "properties": {
-                            "frontendIPConfigurations": [
+                            "frontendIPConfiguration":
                                 {
                                     "id": "[variables('frontEndIPConfigID')]"
-                                }
-                            ],
-                            "backendIPConfiguration": {
-                                "id": "[variables('backEndIPConfigID1')]"
-                            },
+                                },
                             "protocol": "tcp",
                             "frontendPort": 50001,
                             "backendPort": 3389,
@@ -214,14 +223,10 @@
                     {
                         "name": "RDP-VM2",
                         "properties": {
-                            "frontendIPConfigurations": [
+                            "frontendIPConfiguration":
                                 {
                                     "id": "[variables('frontEndIPConfigID')]"
-                                }
-                            ],
-                            "backendIPConfiguration": {
-                                "id": "[variables('backEndIPConfigID2')]"
-                            },
+                                },
                             "protocol": "tcp",
                             "frontendPort": 50002,
                             "backendPort": 3389,
@@ -232,7 +237,7 @@
             }
         },
         {
-            "apiVersion": "2014-12-01-preview",
+            "apiVersion": "2015-05-01-preview",
             "type": "Microsoft.Compute/virtualMachines",
             "name": "[concat(parameters('vmNamePrefix'), copyindex())]",
             "copy": {
@@ -258,10 +263,20 @@
                     "adminPassword": "[parameters('adminPassword')]"
                 },
                 "storageProfile": {
-                    "sourceImage": {
-                        "id": "[variables('sourceImageName')]"
-                    },
-                    "destinationVhdsContainer": "[concat('http://',parameters('storageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/')]"
+                  "imageReference": {
+                      "publisher": "[parameters('imagePublisher')]",
+                      "offer": "[parameters('imageOffer')]",
+                      "sku" : "[parameters('imageSKU')]",
+                      "version":"latest"
+                  },
+                  "osDisk" : {
+                      "name": "osdisk",
+                      "vhd": {
+                         "uri": "[concat('http://',parameters('storageAccountName'),'.blob.core.windows.net/vhds',copyindex(),'/','osdisk.vhd')]"
+                      },
+                      "caching": "ReadWrite",
+                      "createOption": "FromImage"
+                  }
                 },
                 "networkProfile": {
                     "networkInterfaces": [
