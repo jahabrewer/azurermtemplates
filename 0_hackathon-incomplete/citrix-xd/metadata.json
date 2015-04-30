@@ -1,0 +1,7 @@
+{
+  "itemDisplayName": "citrix-xendesktopsite-windows",
+  "description": "This template creates a basic Citrix XenDesktop 7.5 Site with a Controller and multiple Machine Catalogs. It also creates a new AD Forest and Domain Controller. Citrix XenApp/XenDesktop 7.5 installation media and a valid license file are required to make the Site functional.",
+  "summary": "Deploy a Citrix XenDesktop Site in Azure",
+  "githubUsername": "jahabrewer",
+  "dateUpdated": "2015-04-30"
+}

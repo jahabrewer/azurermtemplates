@@ -1,0 +1,584 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01-preview/deploymentTemplate.json",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "type": "string",
+      "metadata": {
+        "Description": "The region into which the resources will be deployed"
+      },
+      "defaultValue": "West US",
+      "allowedValues": [
+        "West US",
+        "East US",
+        "West Europe",
+        "East Asia",
+        "Southeast Asia"
+      ]
+    },
+    "newStorageAccountName": {
+      "type": "string",
+      "metadata": {
+        "Description": "The name of the new storage account created to store the VMs disks"
+      }
+    },
+    "storageAccountType": {
+      "type": "string",
+      "defaultValue": "Standard_LRS",
+      "allowedValues": [
+        "Standard_LRS",
+        "Standard_GRS",
+        "Standard_RAGRS",
+        "Standard_ZRS",
+        "Premium_LRS"
+      ],
+      "metadata": {
+        "Description": "The type of the Storage Account created"
+      }
+    },
+    "domainAdminUsername": {
+      "type": "string",
+      "metadata": {
+        "Description": "The username of the domain administrator account to be created"
+      }
+    },
+    "domainAdminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "Description": "The password of the domain administrator account to be created"
+      }
+    },
+    "adminUsername": {
+      "type": "string",
+      "metadata": {
+        "Description": "The username of the local administrator accounts to be created"
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "Description": "The password of the local administrator accounts to be created"
+      }
+    },
+    "virtualNetworkName": {
+      "type": "string",
+      "metadata": {
+        "Description": "The name of the Virtual Network to create"
+      },
+      "defaultValue": "vnet1"
+    },
+    "addressPrefix": {
+      "type": "string",
+      "metadata": {
+        "Description": "The address range of the new Virtual Network in CIDR format"
+      },
+      "defaultValue": "10.0.0.0/16"
+    },
+    "subnetName": {
+      "type": "string",
+      "metadata": {
+        "Description": "The name of the subnet created in the new Virtual Network"
+      },
+      "defaultValue": "Subnet-1"
+    },
+    "subnetPrefix": {
+      "type": "string",
+      "metadata": {
+        "Description": "The address range of the subnet created in the new Virtual Network"
+      },
+      "defaultValue": "10.0.0.0/24"
+    },
+    "nicNamePrefix": {
+      "type": "string",
+      "metadata": {
+        "Description": "The prefix of the names of NICs created by the template"
+      },
+      "defaultValue": "nic"
+    },
+    "publicIPAddressType": {
+      "type": "string",
+      "metadata": {
+        "Description": "The type of Public IP addresses created by the template"
+      },
+      "defaultValue": "Dynamic",
+      "allowedValues": [
+        "Dynamic",
+        "Static"
+      ]
+    },
+    "dcVmSize": {
+      "type": "string",
+      "metadata": {
+        "Description": "The VM instance size of the Domain Controller"
+      },
+      "defaultValue": "Standard_D2",
+      "allowedValues": [
+        "Standard_D1",
+        "Standard_DS1",
+        "Standard_D2",
+        "Standard_DS2",
+        "Standard_D3",
+        "Standard_DS3",
+        "Standard_D4",
+        "Standard_DS4",
+        "Standard_D11",
+        "Standard_DS11",
+        "Standard_D12",
+        "Standard_DS12",
+        "Standard_D13",
+        "Standard_DS13",
+        "Standard_D14",
+        "Standard_DS14"
+      ]
+    },
+    "dcVmName": {
+      "type": "string",
+      "metadata": {
+        "Description": "The name of the Domain Controller VM"
+      },
+      "defaultValue": "dc"
+    },
+    "dcPublicIPAddressName": {
+      "type": "string",
+      "metadata": {
+        "Description": "The name of the Domain Controller Public IP"
+      },
+      "defaultValue": "publicIP-dc"
+    },
+    "ddcVmSize": {
+      "type": "string",
+      "metadata": {
+        "Description": "The VM instance size of the DDC"
+      },
+      "defaultValue": "Standard_A2",
+      "allowedValues": [
+        "Standard_A0",
+        "Standard_A1",
+        "Standard_A2",
+        "Standard_A3",
+        "Standard_A4"
+      ]
+    },
+    "ddcVmName": {
+      "type": "string",
+      "metadata": {
+        "Description": "The name of the DDC VM"
+      },
+      "defaultValue": "ddc"
+    },
+    "ddcPublicIPAddressName": {
+      "type": "string",
+      "metadata": {
+        "Description": "The name of the DDC Public IP"
+      },
+      "defaultValue": "publicIP-ddc"
+    },
+    "ddcDnsName": {
+      "type": "string",
+      "metadata": {
+        "Description": "The DNS name that resolves to the Public IP of the DDC"
+      }
+    },
+    "ddcImagePublisher": {
+      "type": "string",
+      "defaultValue": "MicrosoftWindowsServer",
+      "metadata": {
+        "Description": "DDC Image Publisher"
+      }
+    },
+    "ddcImageOffer": {
+      "type": "string",
+      "defaultValue": "WindowsServer",
+      "metadata": {
+        "Description": "DDC Image Offer"
+      }
+    },
+    "ddcImageSKU": {
+      "type": "string",
+      "defaultValue": "2012-R2-Datacenter",
+      "metadata": {
+        "Description": "DDC Image SKU"
+      }
+    },
+    "ddcImageVersion": {
+      "type": "string",
+      "defaultValue": "latest",
+      "metadata": {
+        "Description": "DDC Image Version"
+      }
+    },
+    "xdMediaUri": {
+      "type": "string",
+      "metadata": {
+        "Description": "The URI of a ZIP file that contains the XenDesktop 7.6 installation media"
+      }
+    },
+    "domainJoinXdInstallDscModulesUrl": {
+      "type": "string",
+      "metadata": {
+        "Description": "The URI of a ZIP file that contains the XD Role Configuration DSC Module"
+      }
+    },
+    "domainJoinXdInstallDscConfigurationFunction": {
+      "type": "string",
+      "metadata": {
+        "Description": "The configuration function to run from the XD Role Configuration DSC Module"
+      },
+      "defaultValue": "ApplyXDRoleISO.ps1\\Controller"
+    },
+    "adAssetLocation": {
+      "type": "string",
+      "metadata": {
+        "Description": "The location of resources such as templates and DSC modules upon which the ActiveDirectoryNewDomain template is dependent"
+      },
+      "defaultValue": "https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/active-directory-new-domain"
+    },
+    "adDnsName": {
+      "type": "string",
+      "metadata": {
+        "Description": "The DNS name that resolves to the Domain Controller's Load Balancer"
+      }
+    },
+    "domainName": {
+      "type": "string",
+      "metadata": {
+        "Description": "The FQDN of the AD Domain created"
+      },
+      "defaultValue": "xendesktop.com"
+    },
+    "domainJoinDscModulesUrl": {
+      "type": "string",
+      "metadata": {
+        "Description": "The URI of a ZIP file that contains the Domain Join DSC Module"
+      }
+    },
+    "domainJoinDscConfigurationFunction": {
+      "type": "string",
+      "metadata": {
+        "Description": "The configuration function to run from the Domain Join DSC Module"
+      },
+      "defaultValue": "DcJoin.ps1\\DcJoin"
+    },
+    "xdSiteName": {
+      "type": "string",
+      "metadata": {
+        "Description": "The name of the XenDesktop Site to create"
+      },
+      "defaultValue": "MySite"
+    },
+    "machineCatalogAssetLocation": {
+      "type": "string",
+      "metadata": {
+        "Description": "The location of resources such as templates and DSC modules upon which the machine catalog template is dependent"
+      }
+    },
+    "numberOfMachineCatalogDeployments": {
+      "type": "int",
+      "metadata": {
+        "Description": "The number of deployments of the machine catalog template to create"
+      },
+      "defaultValue": 1
+    },
+    "numberOfInstancesPerMachineCatalogDeployment": {
+      "type": "int",
+      "metadata": {
+        "Description": "The number of VMs to create in each machine catalog template deployment"
+      },
+      "defaultValue": 2
+    },
+    "machineCatalogStorageAccountNamePrefix": {
+      "type": "string",
+      "metadata": {
+        "Description": "Each machine catalog template deployment will create its own storage account with this as the prefix"
+      }
+    },
+    "machineCatalogVmNamePrefix": {
+      "type": "string",
+      "metadata": {
+        "Description": "The prefix of the names of the VDA VMs"
+      },
+      "defaultValue": "vda-"
+    },
+    "machineCatalogVmSize": {
+      "type": "string",
+      "metadata": {
+        "Description": "The VM instance size of the VDAs"
+      },
+      "defaultValue": "Standard_A2",
+      "allowedValues": [
+        "Standard_A0",
+        "Standard_A1",
+        "Standard_A2",
+        "Standard_A3",
+        "Standard_A4"
+      ]
+    }
+  },
+  "variables": {
+    "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',parameters('virtualNetworkName'))]",
+    "subnetID": "[concat(variables('vnetID'),'/subnets/',parameters('subnetName'))]",
+    "dcNicName": "[concat(parameters('nicNamePrefix'),'-dc')]",
+    "ddcNicName": "[concat(parameters('nicNamePrefix'),'-ddc')]",
+    "dcTemplateUri": "[concat(parameters('adAssetLocation'),'/azuredeploy.json')]",
+    "machineCatalogTemplateUri": "[concat(parameters('machineCatalogAssetLocation'),'/machinecatalog.json')"
+  },
+  "resources": [
+    {
+      "name": "dc",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('dcTemplateUri')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "newStorageAccountName": {
+            "value": "[parameters('newStorageAccountName')]"
+          },
+          "storageAccountType": {
+            "value": "[parameters('storageAccountType')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "virtualNetworkName": {
+            "value": "[parameters('virtualNetworkName')]"
+          },
+          "virtualNetworkAddressRange": {
+            "value": "[parameters('addressPrefix')]"
+          },
+          "adSubnetName": {
+            "value": "[parameters('subnetName')]"
+          },
+          "adSubnet": {
+            "value": "[parameters('subnetPrefix')]"
+          },
+          "adNicName": {
+            "value": "[variables('dcNicName')]"
+          },
+          "addnsName": {
+            "value": "[parameters('adDnsName')]"
+          },
+          "publicIPAddressName": {
+            "value": "[parameters('dcPublicIPAddressName')]"
+          },
+          "publicIPAddressType": {
+            "value": "[parameters('publicIPAddressType')]"
+          },
+          "adminUsername": {
+            "value": "[parameters('domainAdminUsername')]"
+          },
+          "adminPassword": {
+            "value": "[parameters('domainAdminPassword')]"
+          },
+          "adVMName": {
+            "value": "[parameters('dcVmName')]"
+          },
+          "adVMSize": {
+            "value": "[parameters('dcVmSize')]"
+          },
+          "domainName": {
+            "value": "[parameters('domainName')]"
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "2015-05-01-preview",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[parameters('ddcPublicIPAddressName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "publicIPAllocationMethod": "[parameters('publicIPAddressType')]",
+        "dnsSettings": {
+          "domainNameLabel": "[parameters('ddcDnsName')]"
+        }
+      }
+    },
+    {
+      "apiVersion": "2015-05-01-preview",
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[variables('ddcNicName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[concat('Microsoft.Network/publicIPAddresses/', parameters('ddcPublicIPAddressName'))]",
+        "Microsoft.Resources/deployments/dc"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[variables('subnetID')]"
+              },
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses',parameters('ddcPublicIPAddressName'))]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "2015-05-01-preview",
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[parameters('ddcVmName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "Microsoft.Resources/deployments/dc",
+        "[concat('Microsoft.Network/networkInterfaces/', variables('ddcNicName'))]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('ddcVmSize')]"
+        },
+        "osProfile": {
+          "computername": "[parameters('ddcVmName')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[parameters('ddcImagePublisher')]",
+            "offer": "[parameters('ddcImageOffer')]",
+            "sku": "[parameters('ddcImageSKU')]",
+            "version": "[parameters('ddcImageVersion')]"
+          },
+          "osDisk": {
+            "name": "osdisk",
+            "vhd": {
+              "uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/vhds/osdisk-ddc.vhd')]"
+            },
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces',variables('ddcNicName'))]"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "name": "[concat(parameters('ddcVmName'),'/','domainJoinAndXdInstall')]",
+      "apiVersion": "2015-05-01-preview",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[concat('Microsoft.Compute/virtualMachines/', parameters('ddcVmName'))]"
+      ],
+      "properties": {
+        "publisher": "Microsoft.Powershell",
+        "type": "DSC",
+        "typeHandlerVersion": "1.7",
+        "settings": {
+          "ModulesUrl": "[parameters('domainJoinXdInstallDscModulesUrl')]",
+          "SasToken": "",
+          "ConfigurationFunction": "[parameters('domainJoinXdInstallDscConfigurationFunction')]",
+          "Properties": [
+            {
+              "Name": "mediaUri",
+              "Value": "[parameters('xdMediaUri')]",
+              "TypeName": "System.String"
+            },
+            {
+              "Name": "MachineName",
+              "Value": "[parameters('ddcVmName')]",
+              "TypeName": "System.String"
+            },
+            {
+              "Name": "Domain",
+              "Value": "[parameters('domainName')]",
+              "TypeName": "System.String"
+            },
+            {
+              "Name": "DomainCredential",
+              "TypeName": "System.Management.Automation.PSCredential",
+              "Value": {
+                "Username": "[concat(parameters('domainName'), '\\', parameters('domainAdminUsername'))]",
+                "Password": "PrivateSettingsRef:DomainCredPassword"
+              }
+            },
+            {
+              "Name": "SiteName",
+              "Value": "[parameters('xdSiteName')]",
+              "TypeName": "System.String"
+            }
+          ]
+        },
+        "protectedSettings": {
+          "Items": {
+            "DomainCredPassword": "[parameters('domainAdminPassword')]"
+          }
+        }
+      }
+    },
+    {
+      "name": "[concat('machineCatalog', copyindex())]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "copy": {
+        "name": "machineCatalogLoop",
+        "count": "[parameters('numberOfMachineCatalogDeployments')]"
+      },
+      "dependsOn": [
+        "Microsoft.Resources/deployments/dc"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('machineCatalogTemplateUri')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "adminUsername": {
+            "value": "[parameters('adminUsername')]"
+          },
+          "adminPassword": {
+            "value": "[parameters('adminPassword')]"
+          },
+          "numberOfInstances": {
+            "value": "[parameters('numberOfInstancesPerMachineCatalogDeployment')]"
+          },
+          "newStorageAccountName": {
+            "value": "[concat(parameters('machineCatalogStorageAccountNamePrefix'),copyindex())]"
+          },
+          "existingSubnetId": {
+            "value": "[variables('subnetID')]"
+          },
+          "vmNamePrefix": {
+            "value": "[concat(parameters('machineCatalogVmNamePrefix'),copyindex(),'-')]"
+          },
+          "vmSize": {
+            "value": "[parameters('machineCatalogVmSize')]"
+          },
+          "domainJoinXdInstallDscModulesUrl": {
+            "value": "[parameters('domainJoinXdInstallDscModulesUrl')]"
+          },
+          "domainName": {
+            "value": "[parameters('domainName')]"
+          },
+          "domainCredUsername": {
+            "value": "[parameters('domainAdminUsername')]"
+          },
+          "domainCredPassword": {
+            "value": "[parameters('domainAdminPassword')]"
+          },
+          "xdMediaUri": {
+            "value": "[parameters('xdMediaUri')]"
+          },
+          "xenDesktopControllerFQDN": {
+            "value": "[concat(parameters('ddcVmName'),'.',parameters('domainName'))]"
+          }
+        }
+      }
+    }
+  ]
+}

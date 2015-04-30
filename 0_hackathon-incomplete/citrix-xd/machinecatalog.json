@@ -1,0 +1,325 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01-preview/deploymentTemplate.json",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "adminUsername": {
+      "type": "string",
+      "metadata": {
+        "Description": "The username of the local administrator accounts to be created"
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "Description": "The password of the local administrator accounts to be created"
+      }
+    },
+    "newStorageAccountName": {
+      "type": "string",
+      "metadata": {
+        "Description": "The name of the new storage account created to store the VMs disks"
+      }
+    },
+    "storageAccountType": {
+      "type": "string",
+      "defaultValue": "Standard_LRS",
+      "allowedValues": [
+        "Standard_LRS",
+        "Standard_GRS",
+        "Standard_RAGRS",
+        "Standard_ZRS",
+        "Premium_LRS"
+      ],
+      "metadata": {
+        "Description": "The type of the Storage Account created"
+      }
+    },
+    "numberOfInstances": {
+      "type": "int",
+      "metadata": {
+        "Description": "The number of VDAs to create"
+      },
+      "defaultValue": 2
+    },
+    "location": {
+      "type": "string",
+      "metadata": {
+        "Description": "The region into which the resources will be deployed"
+      },
+      "defaultValue": "West US",
+      "allowedValues": [
+        "West US",
+        "East US",
+        "West Europe",
+        "East Asia",
+        "Southeast Asia"
+      ]
+    },
+    "existingSubnetId": {
+      "type": "string",
+      "metadata": {
+        "Description": "The ID of the already created subnet to use"
+      }
+    },
+    "vmSize": {
+      "type": "string",
+      "metadata": {
+        "Description": "The VM instance size of the VDAs"
+      },
+      "defaultValue": "Standard_A2",
+      "allowedValues": [
+        "Standard_A0",
+        "Standard_A1",
+        "Standard_A2",
+        "Standard_A3",
+        "Standard_A4"
+      ]
+    },
+    "nicNamePrefix": {
+      "type": "string",
+      "metadata": {
+        "Description": "The prefix of the names of NICs created by the template"
+      },
+      "defaultValue": "vdanic-"
+    },
+    "vmNamePrefix": {
+      "type": "string",
+      "metadata": {
+        "Description": "The prefix of the names of the VDA VMs"
+      },
+      "defaultValue": "vda-"
+    },
+    "imagePublisher": {
+      "type": "string",
+      "defaultValue": "MicrosoftWindowsServer",
+      "metadata": {
+        "Description": "Image Publisher"
+      }
+    },
+    "imageOffer": {
+      "type": "string",
+      "defaultValue": "WindowsServer",
+      "metadata": {
+        "Description": "Image Offer"
+      }
+    },
+    "imageSKU": {
+      "type": "string",
+      "defaultValue": "2012-R2-Datacenter",
+      "metadata": {
+        "Description": "Image SKU"
+      }
+    },
+    "imageVersion": {
+      "type": "string",
+      "defaultValue": "latest",
+      "metadata": {
+        "Description": "Image Version"
+      }
+    },
+    "availabilitySetName": {
+      "type": "string",
+      "metadata": {
+        "Description": "The name of the Availability Set into which all VDAs will be placed"
+      },
+      "defaultValue": "vdaAset"
+    },
+    "domainJoinXdInstallDscModulesUrl": {
+      "type": "string",
+      "metadata": {
+        "Description": "The URI of a ZIP file that contains the XD Role Configuration DSC Module"
+      }
+    },
+    "domainJoinXdInstallDscConfigurationFunction": {
+      "type": "string",
+      "metadata": {
+        "Description": "The configuration function to run from the XD Role Configuration DSC Module"
+      },
+      "defaultValue": "ApplyXDRoleISO.ps1\\SessionVDA"
+    },
+    "domainName": {
+      "type": "string",
+      "metadata": {
+        "Description": "The FQDN of the AD Domain to which the VDAs will be joined"
+      },
+      "defaultValue": "xendesktop.com"
+    },
+    "domainCredUsername": {
+      "type": "string",
+      "metadata": {
+        "Description": "The username of the domain account to be used for domain joining"
+      }
+    },
+    "domainCredPassword": {
+      "type": "securestring",
+      "metadata": {
+        "Description": "The password of the domain account to be used for domain joining"
+      }
+    },
+    "xdMediaUri": {
+      "type": "string",
+      "metadata": {
+        "Description": "The URI of a ZIP file that contains the XenDesktop 7.6 installation media"
+      }
+    },
+    "xenDesktopControllerFQDN": {
+      "type": "string",
+      "metadata": {
+        "Description": "The FQDN of the DDC with which the VDAs should register"
+      },
+      "defaultValue": "ddc.xendesktop.com"
+    }
+  },
+  "variables": {
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "name": "[parameters('newStorageAccountName')]",
+      "apiVersion": "2015-05-01-preview",
+      "location": "[parameters('location')]",
+      "properties": {
+        "accountType": "[parameters('storageAccountType')]"
+      }
+    },
+    {
+      "type": "Microsoft.Compute/availabilitySets",
+      "name": "[parameters('availabilitySetName')]",
+      "apiVersion": "2015-05-01-preview",
+      "location": "[parameters('location')]",
+      "properties": {}
+    },
+    {
+      "apiVersion": "2015-05-01-preview",
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[concat(parameters('nicNamePrefix'), copyindex())]",
+      "location": "[parameters('location')]",
+      "copy": {
+        "name": "nicLoop",
+        "count": "[parameters('numberOfInstances')]"
+      },
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[variables('existingSubnetId')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "2015-05-01-preview",
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[concat(parameters('vmNamePrefix'), copyindex())]",
+      "location": "[parameters('location')]",
+      "copy": {
+        "name": "virtualMachineLoop",
+        "count": "[parameters('numberOfInstances')]"
+      },
+      "dependsOn": [
+        "[concat('Microsoft.Network/networkInterfaces/', parameters('nicNamePrefix'), copyindex())]",
+        "[concat('Microsoft.Storage/storageAccounts/', parameters('newStorageAccountName'))]",
+        "[concat('Microsoft.Compute/availabilitySets/', parameters('availabilitySetName'))]"
+      ],
+      "properties": {
+        "availabilitySet": {
+          "id": "[resourceId('Microsoft.Compute/availabilitySets',parameters('availabilitySetName'))]"
+        },
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
+        },
+        "osProfile": {
+          "computername": "[concat(parameters('vmNamePrefix'), copyIndex())]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[parameters('imagePublisher')]",
+            "offer": "[parameters('imageOffer')]",
+            "sku": "[parameters('imageSKU')]",
+            "version": "[parameters('imageVersion')]"
+          },
+          "osDisk": {
+            "name": "osdisk",
+            "vhd": {
+              "uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/vhds/osdisk',copyindex(),'.vhd')]"
+            },
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces',concat(parameters('nicNamePrefix'), copyindex()))]"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "name": "[concat(parameters('vmNamePrefix'), copyIndex(),'/','domainJoinAndXdInstall')]",
+      "apiVersion": "2015-05-01-preview",
+      "location": "[parameters('location')]",
+      "copy": {
+        "name": "domainJoinAndXdInstallExtensionLoop",
+        "count": "[parameters('numberOfInstances')]"
+      },
+      "dependsOn": [
+        "[concat('Microsoft.Compute/virtualMachines/', parameters('vmNamePrefix'), copyindex())]"
+      ],
+      "properties": {
+        "publisher": "Microsoft.Powershell",
+        "type": "DSC",
+        "typeHandlerVersion": "1.7",
+        "settings": {
+          "ModulesUrl": "[parameters('domainJoinXdInstallDscModulesUrl')]",
+          "SasToken": "",
+          "ConfigurationFunction": "[parameters('domainJoinXdInstallDscConfigurationFunction')]",
+          "Properties": [
+            {
+              "Name": "mediaUri",
+              "Value": "[parameters('xdMediaUri')]",
+              "TypeName": "System.String"
+            },
+            {
+              "Name": "XenDesktopController",
+              "Value": "[parameters('xenDesktopControllerFQDN')]",
+              "TypeName": "System.String"
+            },
+            {
+              "Name": "MachineName",
+              "Value": "[concat(parameters('vmNamePrefix'), copyindex())]",
+              "TypeName": "System.String"
+            },
+            {
+              "Name": "Domain",
+              "Value": "[parameters('domainName')]",
+              "TypeName": "System.String"
+            },
+            {
+              "Name": "DomainCredential",
+              "TypeName": "System.Management.Automation.PSCredential",
+              "Value": {
+                "Username": "[concat(parameters('domainName'),'\\',parameters('domainCredUsername'))]",
+                "Password": "PrivateSettingsRef:DomainCredPassword"
+              }
+            }
+          ]
+        },
+        "protectedSettings": {
+          "Items": {
+            "DomainCredPassword": "[parameters('domainCredPassword')]"
+          }
+        }
+      }
+    }
+  ]
+}
